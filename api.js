@@ -1,5 +1,5 @@
 // API Service Module - Handles all backend API calls
-const API_BASE_URL = 'https://backend-huyf.onrender.com';
+const API_BASE_URL = 'https://backend-huyf.onrender.com/api';
 
 // Helper function to get auth token
 function getAuthToken() {
