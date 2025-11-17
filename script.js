@@ -21,6 +21,7 @@ const ordersNavLink = document.getElementById("orders-nav-link");
 let products = [];
 let cart = null;
 let loading = false;
+let currentSort = "featured";
 
 /* ------------------------- Utility Functions ------------------------- */
 function showToast(message, type = 'info', duration = 3000) {
@@ -122,6 +123,20 @@ function getImageUrl(product) {
     return `http://localhost:5000${product.image}`;
   }
   return 'https://via.placeholder.com/300x300?text=No+Image';
+}
+
+function getSortedProducts(list = []) {
+  const sorted = [...list];
+  switch (currentSort) {
+    case "price-asc":
+      return sorted.sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
+    case "price-desc":
+      return sorted.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+    case "stock-desc":
+      return sorted.sort((a, b) => (b.stock || 0) - (a.stock || 0));
+    default:
+      return sorted;
+  }
 }
 
 /* ------------------------- Authentication ------------------------- */
@@ -371,7 +386,7 @@ async function loadProducts(category = null, search = null) {
   try {
     loading = true;
     products = await productsAPI.getAll(category, search);
-    renderProducts(productListEl, products);
+    renderProducts(productListEl, getSortedProducts(products));
     renderProducts(featuredListEl, products.slice(0, 8));
   } catch (error) {
     console.error("Error loading products:", error);
@@ -394,6 +409,24 @@ document.getElementById("product-category-filter")?.addEventListener("input", (e
   loadProducts(category || null, search);
 });
 
+document.getElementById("product-sort")?.addEventListener("change", (e) => {
+  currentSort = e.target.value;
+  renderProducts(productListEl, getSortedProducts(products));
+});
+
+document.getElementById("product-reset")?.addEventListener("click", () => {
+  const searchEl = document.getElementById("product-search");
+  const categoryEl = document.getElementById("product-category-filter");
+  const sortEl = document.getElementById("product-sort");
+
+  if (searchEl) searchEl.value = "";
+  if (categoryEl) categoryEl.value = "";
+  currentSort = "featured";
+  if (sortEl) sortEl.value = currentSort;
+
+  loadProducts();
+});
+
 function renderProducts(targetEl, list) {
   if (!targetEl) return;
   
@@ -407,19 +440,28 @@ function renderProducts(targetEl, list) {
 	list.forEach((p) => {
 		const col = document.createElement("div");
 		col.className = "col-12 col-sm-6 col-md-4 col-lg-3";
+    const categoryLabel = p.category || "Featured";
+    const isOutOfStock = (p.stock ?? 0) <= 0;
+    const description = p.description || "Built to simplify your everyday setup.";
 		col.innerHTML = `
 			<div class="card h-100 product-card shadow-sm">
-        <img src="${getImageUrl(p)}" class="card-img-top" alt="${p.name}" onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'" />
+        <div class="product-media">
+          <img src="${getImageUrl(p)}" class="card-img-top" alt="${p.name}" onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'" />
+          <span class="product-chip">${categoryLabel}</span>
+        </div>
 				<div class="card-body d-flex flex-column">
-					<h6 class="card-title">${p.name}</h6>
-          <p class="card-text small text-muted flex-grow-1">${p.description || ''}</p>
-					<div class="d-flex justify-content-between align-items-center">
-            <strong>${formatPrice(p.price)}</strong>
-            <button class="btn btn-primary btn-sm" data-id="${p._id}" ${p.stock <= 0 ? 'disabled' : ''}>
-              ${p.stock <= 0 ? 'Out of Stock' : 'Add to cart'}
+          <p class="eyebrow mb-1">${categoryLabel}</p>
+					<h6 class="card-title fw-semibold mb-2">${p.name}</h6>
+          <p class="card-text small text-muted flex-grow-1">${description}</p>
+					<div class="product-card__footer mt-3">
+            <div>
+              <p class="product-price mb-0">${formatPrice(p.price)}</p>
+              <small class="${isOutOfStock ? 'text-danger' : 'text-muted'}">${isOutOfStock ? 'Out of stock' : `In stock: ${p.stock}`}</small>
+            </div>
+            <button class="btn btn-primary btn-sm" data-id="${p._id}" ${isOutOfStock ? 'disabled' : ''}>
+              ${isOutOfStock ? 'Notify me' : 'Add to cart'}
             </button>
 					</div>
-          ${p.stock > 0 ? `<small class="text-muted">Stock: ${p.stock}</small>` : ''}
 				</div>
 			</div>
 		`;
